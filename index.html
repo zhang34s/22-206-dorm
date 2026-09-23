@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>22-206 公共采购与 AA</title>
+<title>33-206 公共采购与 AA</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -260,7 +260,7 @@
 <body>
 <div class="app">
   <header class="top">
-    <div class="plate" id="plate">22-206</div>
+    <div class="plate" id="plate">33-206</div>
     <div>
       <h1>公共采购与 AA</h1>
       <p class="sub" id="subline">正在连接…</p>
@@ -297,7 +297,7 @@ const AREAS = ['玄关','客厅','厨房','卫生间','阳台','其他'];
 const PRIS = ['高','中','低'];
 const STATUSES = ['待购买','已到货'];
 const normStatus = st => st === '已到货' ? '已到货' : '待购买';
-const DEFAULT_SETTINGS = { room:'22-206', roster:['Simon','Gary','Harry','Yuluo'], cur:'$' };
+const DEFAULT_SETTINGS = { room:'33-206', roster:['Simon','Gary','Harry','Yuluo'], cur:'$' };
 const LS_KEY = 'dorm-aa-v1';
 
 /* ============================ helpers ============================ */
@@ -499,7 +499,7 @@ function periodLabel(key, unit, long){ if (unit === 'month'){ const [y,m] = key.
 
 /* ============================ render ============================ */
 function render(){
-  $('#plate').textContent = S.settings.room || '22-206';
+  $('#plate').textContent = S.settings.room || '33-206';
   const ob = openBills(); const openTotal = ob.reduce((a,b) => a + cents(b.amount), 0);
   const todo = S.items.filter(i => normStatus(i.status) !== '已到货').length;
   $('#subline').textContent = S.ready ? `待购 ${todo} 项 · 本轮待结算 ${fmt(openTotal)}${api && api.mode==='db' ? ' · 已同步' : ''}` : '正在加载…';
@@ -898,7 +898,7 @@ document.addEventListener('submit', async e => {
     const names = fd.getAll('roster').map(s => String(s).trim()).filter(Boolean);
     const dedup = [...new Set(names)];
     if (!dedup.length) { toast('至少要有一个人'); return; }
-    const s = { room: String(fd.get('room')||'').trim() || '22-206', cur: String(fd.get('cur')||'').trim() || '$', roster: dedup };
+    const s = { room: String(fd.get('room')||'').trim() || '33-206', cur: String(fd.get('cur')||'').trim() || '$', roster: dedup };
     lsSet('dorm-aa-me', String(fd.get('me')||''));
     if (await guard(() => api.settingsSet(s), '设置已保存')) closeSheet();
   }

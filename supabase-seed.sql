@@ -1,5 +1,5 @@
 -- 可选：把原来 Excel 里的 4 个名字和 7 件物品导入（只在 items 表为空时插入，重复运行不会加两遍）
-update public.settings set room = '22-206', cur = '$', roster = '["Simon","Gary","Harry","Yuluo"]'::jsonb where id = 'main';
+update public.settings set room = '33-206', cur = '$', roster = '["Simon","Gary","Harry","Yuluo"]'::jsonb where id = 'main';
 
 insert into public.items (no, name, area, qty, priority, status, note)
 select * from (values

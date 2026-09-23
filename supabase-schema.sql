@@ -1,5 +1,5 @@
 -- =====================================================================
--- 22-206 公共采购与 AA —— Supabase 初始化脚本（宿舍口令版，室友不用注册）
+-- 33-206 公共采购与 AA —— Supabase 初始化脚本（宿舍口令版，室友不用注册）
 -- 用法：Supabase 控制台 → SQL Editor → New query → 整段粘贴 → Run
 -- 运行完，结果区会显示自动生成的「宿舍口令」，把它接在网址后面发给室友：
 --     https://你的网址/#code=口令
@@ -11,7 +11,7 @@ create extension if not exists pgcrypto;
 -- ---------- 1. 表 ----------
 create table if not exists public.settings (
   id     text  primary key,
-  room   text  not null default '22-206',
+  room   text  not null default '33-206',
   cur    text  not null default '$',
   roster jsonb not null default '["Simon","Gary","Harry","Yuluo"]'::jsonb
 );
