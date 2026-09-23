@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>22-206 公共采购与 AA</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#163A1B">
+<style>
+  :root{
+    --bg:#F1F4EE; --card:#FFFFFF; --paper:#FFFDF6; --ink:#1B261E; --muted:#66746A; --line:#D9E2D8; --line-2:#E8EEE6;
+    --green:#2F7D32; --green-deep:#1F5A23; --green-soft:#E3F1E4; --plate:#163A1B; --plate-text:#F4F8F2;
+    --red:#B3261E; --red-soft:#FBE7E5; --amber:#9A5B00; --amber-soft:#FFF1D6;
+    --blue:#1F5FBF; --blue-soft:#E4EEFC;
+    --focus:#8BC34A;
+    --r-sm:8px; --r:12px;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    color-scheme:light dark;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0F1511; --card:#171F19; --paper:#1A231C; --ink:#E7EEE8; --muted:#94A297; --line:#2A362D; --line-2:#212B24;
+      --green:#6BBF6E; --green-deep:#8FD392; --green-soft:#1D3320; --plate:#0B2210; --plate-text:#E9F2EA;
+      --red:#F28B82; --red-soft:#3A1F1D; --amber:#F0B860; --amber-soft:#3A2D14;
+      --blue:#8AB4F8; --blue-soft:#1E2A3D;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0F1511; --card:#171F19; --paper:#1A231C; --ink:#E7EEE8; --muted:#94A297; --line:#2A362D; --line-2:#212B24;
+    --green:#6BBF6E; --green-deep:#8FD392; --green-soft:#1D3320; --plate:#0B2210; --plate-text:#E9F2EA;
+    --red:#F28B82; --red-soft:#3A1F1D; --amber:#F0B860; --amber-soft:#3A2D14;
+    --blue:#8AB4F8; --blue-soft:#1E2A3D;
+  }
+  html{ scroll-padding-top:env(safe-area-inset-top,0px); height:100%; }
+  *,*::before,*::after{ box-sizing:inherit; }
+  body{
+    margin:0; min-height:100%; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Helvetica Neue",Arial,sans-serif;
+    font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased; overscroll-behavior-y:contain;
+  }
+  button,input,select,textarea{ font:inherit; color:inherit; }
+  button{ cursor:pointer; }
+  :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; }
+  .num{ font-variant-numeric:tabular-nums; }
+  .mono{ font-family:"SF Mono",Menlo,Consolas,"Liberation Mono",monospace; font-variant-numeric:tabular-nums; }
+
+  /* ---------- shell ---------- */
+  .app{ max-width:620px; margin:0 auto; padding:0 0 calc(84px + env(safe-area-inset-bottom,0px)); }
+  header.top{ padding:14px 16px 10px; display:flex; align-items:center; gap:14px; }
+  .plate{
+    flex:none; background:var(--plate); color:var(--plate-text); border-radius:10px; padding:8px 12px 7px;
+    font-weight:800; font-size:24px; letter-spacing:.06em; line-height:1; position:relative;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 2px 0 rgba(0,0,0,.25);
+    min-width:96px; text-align:center; user-select:none;
+  }
+  .plate::before,.plate::after{ content:""; position:absolute; top:50%; width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,.35); transform:translateY(-50%); }
+  .plate::before{ left:5px } .plate::after{ right:5px }
+  .top h1{ margin:0; font-size:17px; font-weight:700; }
+  .top .sub{ margin:2px 0 0; font-size:13px; color:var(--muted); }
+  .top .gear{ margin-left:auto; flex:none; background:none; border:1px solid var(--line); border-radius:50%; width:38px; height:38px; display:grid; place-items:center; color:var(--muted); }
+  .banner{ margin:0 16px 10px; padding:10px 12px; border-radius:var(--r-sm); font-size:13px; background:var(--amber-soft); color:var(--amber); }
+  .banner.err{ background:var(--red-soft); color:var(--red); }
+  main{ padding:0 16px; }
+
+  /* ---------- bottom nav + fab ---------- */
+  nav.tabs{
+    position:fixed; left:0; right:0; bottom:0; z-index:20; background:var(--card); border-top:1px solid var(--line);
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));
+  }
+  nav.tabs .inner{ max-width:620px; margin:0 auto; display:grid; grid-template-columns:repeat(4,1fr); gap:4px; }
+  nav.tabs button{ background:none; border:0; border-radius:10px; padding:6px 4px 4px; display:flex; flex-direction:column; align-items:center; gap:2px; font-size:12px; color:var(--muted); }
+  nav.tabs button svg{ width:22px; height:22px; }
+  nav.tabs button[aria-current="page"]{ color:var(--green); background:var(--green-soft); font-weight:600; }
+  .fab{
+    position:fixed; right:max(18px, calc((100vw - 620px)/2 + 18px)); bottom:calc(78px + env(safe-area-inset-bottom,0px)); z-index:21;
+    width:56px; height:56px; border-radius:50%; border:0; background:var(--green); color:var(--card); font-size:30px; line-height:1;
+    box-shadow:0 6px 18px rgba(31,90,35,.35); display:grid; place-items:center;
+  }
+  .fab:active{ transform:scale(.96); }
+  .fab[hidden]{ display:none; }
+
+  /* ---------- summary strip ---------- */
+  .strip{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:4px 0 14px; }
+  .strip > div{ background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; }
+  .strip .k{ font-size:12px; color:var(--muted); }
+  .strip .v{ font-size:20px; font-weight:700; margin-top:2px; }
+  .strip .v small{ font-size:12px; font-weight:500; color:var(--muted); margin-left:4px; }
+
+  /* ---------- chips / filters ---------- */
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; }
+  .chip{ border:1px solid var(--line); background:var(--card); border-radius:999px; padding:6px 12px; font-size:13px; color:var(--ink); }
+  .chip[aria-pressed="true"]{ background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  .chip.small{ padding:4px 10px; font-size:12px; }
+  .filters{ margin:0 0 10px; }
+
+  /* ---------- item list ---------- */
+  .list{ background:var(--card); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
+  .row{ display:flex; align-items:center; gap:10px; padding:11px 12px; border-top:1px solid var(--line-2); text-align:left; width:100%; background:none; border-left:0; border-right:0; border-bottom:0; }
+  .row:first-child{ border-top:0; }
+  .row .no{ flex:none; width:38px; color:var(--muted); font-size:12px; font-weight:600; }
+  .row .body{ flex:1; min-width:0; }
+  .row .title{ font-weight:600; display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
+  .row .title .qty{ font-weight:500; color:var(--muted); font-size:13px; }
+  .row .meta{ font-size:12px; color:var(--muted); margin-top:2px; display:flex; gap:6px; flex-wrap:wrap; }
+  .pri{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:2px; vertical-align:middle; }
+  .pri.高{ background:var(--red) } .pri.中{ background:var(--amber) } .pri.低{ background:var(--muted) }
+  .status{ flex:none; border:1px solid var(--line); background:var(--bg); border-radius:999px; padding:5px 10px; font-size:12px; font-weight:600; min-width:64px; text-align:center; }
+  .status.待购买{ color:var(--ink); }
+  .status.已到货{ background:var(--green-soft); color:var(--green); border-color:transparent; }
+  .row.done .title{ color:var(--muted); text-decoration:line-through; text-decoration-color:var(--line); }
+  .empty{ padding:36px 16px; text-align:center; color:var(--muted); }
+  .empty b{ display:block; color:var(--ink); font-size:16px; margin-bottom:6px; }
+  .section-h{ display:flex; align-items:baseline; justify-content:space-between; margin:18px 0 8px; }
+  .section-h h2{ margin:0; font-size:15px; font-weight:700; }
+  .section-h .hint{ font-size:12px; color:var(--muted); }
+
+  /* ---------- bills (receipt strips) ---------- */
+  .bill{ display:flex; gap:10px; align-items:flex-start; width:100%; text-align:left; background:var(--paper); border:1px solid var(--line); border-radius:var(--r-sm); padding:10px 12px 12px; margin-bottom:10px; position:relative; }
+  .bill .bmain{ flex:1; min-width:0; }
+  .bill::after{ content:""; position:absolute; left:8px; right:8px; bottom:-1px; border-bottom:2px dashed var(--line); }
+  .bill .l1{ display:flex; align-items:baseline; gap:8px; }
+  .bill .rec{ font-size:12px; color:var(--muted); font-weight:600; }
+  .bill .payer{ font-weight:700; }
+  .bill .date{ font-size:12px; color:var(--muted); margin-left:auto; }
+  .bill .amt{ font-size:20px; font-weight:700; margin-top:2px; }
+  .bill .items{ font-size:12px; color:var(--muted); margin-top:4px; }
+  .bill .note{ font-size:13px; margin-top:2px; }
+  .bill .tag{ position:absolute; right:10px; bottom:10px; font-size:11px; padding:3px 8px; border-radius:999px; background:var(--green-soft); color:var(--green); font-weight:600; }
+  .bill.settled{ opacity:.62; }
+  .bill .thumb{ flex:none; width:56px; height:56px; object-fit:cover; border-radius:6px; border:1px solid var(--line); }
+
+  /* ---------- settlement ticket ---------- */
+  .ticket{ background:var(--paper); border:1px solid var(--line); border-radius:var(--r-sm); padding:14px 14px 10px; position:relative; }
+  .ticket .head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .ticket .head b{ font-size:15px; }
+  .ticket .head span{ font-size:12px; color:var(--muted); }
+  .ticket table{ width:100%; border-collapse:collapse; }
+  .ticket th{ text-align:left; font-size:11px; font-weight:600; color:var(--muted); padding:4px 0; border-bottom:1px solid var(--line); }
+  .ticket th.r,.ticket td.r{ text-align:right; }
+  .ticket td{ padding:7px 0; border-bottom:1px solid var(--line-2); font-size:14px; }
+  .ticket td.name{ font-weight:600; }
+  .pos{ color:var(--green); font-weight:700; } .neg{ color:var(--red); font-weight:700; } .zero{ color:var(--muted); }
+  .tear{ border:0; border-top:2px dashed var(--line); margin:12px -14px; }
+  .transfer{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line-2); }
+  .transfer:last-child{ border-bottom:0; }
+  .transfer .who{ flex:1; }
+  .transfer .who b{ font-weight:700; }
+  .transfer .arrow{ color:var(--muted); margin:0 6px; }
+  .transfer .amt{ font-weight:700; }
+  .transfer label{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
+  .transfer input[type=checkbox]{ width:20px; height:20px; accent-color:var(--green); }
+  .transfer.done .who{ color:var(--muted); text-decoration:line-through; text-decoration-color:var(--line); }
+  .ticket .foot{ font-size:12px; color:var(--muted); margin-top:8px; }
+  .warn{ background:var(--amber-soft); color:var(--amber); border-radius:var(--r-sm); padding:10px 12px; font-size:13px; margin-bottom:10px; }
+  .round{ margin-bottom:12px; }
+  .round .rh{ display:flex; align-items:baseline; gap:8px; margin-bottom:6px; }
+  .round .rh b{ font-size:14px; }
+  .round .rh span{ font-size:12px; color:var(--muted); }
+  .round .rh .link{ margin-left:auto; }
+  .link{ background:none; border:0; color:var(--blue); font-size:13px; padding:4px 2px; }
+  .link.danger{ color:var(--red); }
+
+  /* ---------- buttons ---------- */
+  .btn{ border:0; border-radius:10px; padding:13px 16px; font-weight:700; font-size:15px; width:100%; background:var(--green); color:var(--card); }
+  .btn.secondary{ background:var(--green-soft); color:var(--green-deep); }
+  .btn.ghost{ background:none; border:1px solid var(--line); color:var(--ink); font-weight:600; }
+  .btn.danger{ background:var(--red-soft); color:var(--red); }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .btnrow{ display:flex; gap:10px; margin-top:12px; }
+
+  /* ---------- sheet (modal) ---------- */
+  .scrim{ position:fixed; inset:0; background:rgba(10,20,12,.45); z-index:30; display:none; }
+  .scrim.open{ display:block; }
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:31; background:var(--card); border-radius:18px 18px 0 0;
+    max-height:calc(100vh - 40px); max-height:calc(100dvh - 40px - env(safe-area-inset-top,0px)); overflow:auto; display:none;
+    padding:12px 16px calc(20px + env(safe-area-inset-bottom,0px));
+    box-shadow:0 -10px 40px rgba(0,0,0,.18);
+  }
+  .sheet.open{ display:block; }
+  @media (min-width:640px){ .sheet{ left:50%; right:auto; width:600px; transform:translateX(-50%); border-radius:18px; bottom:24px; } }
+  .sheet .grab{ width:40px; height:4px; border-radius:2px; background:var(--line); margin:0 auto 12px; }
+  .sheet h3{ margin:0 0 12px; font-size:17px; display:flex; align-items:center; }
+  .sheet h3 .x{ margin-left:auto; background:none; border:0; font-size:22px; color:var(--muted); line-height:1; padding:4px 6px; }
+  .field{ margin-bottom:14px; }
+  .field label.lab{ display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
+  .field .req{ color:var(--red); }
+  .input{ width:100%; border:1px solid var(--line); background:var(--bg); border-radius:10px; padding:11px 12px; font-size:16px; }
+  .input:focus{ border-color:var(--green); background:var(--card); outline:0; box-shadow:0 0 0 3px var(--green-soft); }
+  textarea.input{ min-height:64px; resize:vertical; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .money{ position:relative; }
+  .money .cur{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:16px; }
+  .money .input{ padding-left:28px; font-size:22px; font-weight:700; }
+  .itempick{ display:flex; flex-direction:column; gap:6px; max-height:220px; overflow:auto; border:1px solid var(--line); border-radius:10px; padding:6px; }
+  .itempick label{ display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:8px; font-size:14px; }
+  .itempick label:has(input:checked){ background:var(--green-soft); }
+  .itempick input{ width:18px; height:18px; accent-color:var(--green); }
+  .itempick .s{ margin-left:auto; font-size:11px; color:var(--muted); }
+  .photo{ display:flex; align-items:center; gap:12px; }
+  .photo img{ width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid var(--line); }
+  .photo .pick{ display:inline-block; }
+  .photo input[type=file]{ display:none; }
+  .note-inline{ font-size:12px; color:var(--muted); margin-top:6px; }
+  .roster-edit{ display:flex; flex-direction:column; gap:8px; }
+  .roster-edit .r{ display:flex; gap:8px; align-items:center; }
+  .roster-edit .r .input{ flex:1; }
+  .roster-edit .r .link{ flex:none; }
+
+  /* bill picker for a round */
+  .pickrow{ display:flex; align-items:center; gap:10px; padding:8px 10px; border-top:1px solid var(--line-2); }
+  .pickrow:first-child{ border-top:0; }
+  .pickrow input{ width:20px; height:20px; accent-color:var(--green); flex:none; }
+  .pickrow .t{ flex:1; min-width:0; }
+  .pickrow .t b{ display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pickrow .t span{ font-size:12px; color:var(--muted); }
+  .pickrow .a{ font-weight:700; }
+  .pickrow.off .t b,.pickrow.off .a{ color:var(--muted); }
+  .picklist{ background:var(--card); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; margin-bottom:12px; }
+  /* bill title */
+  .bill .ttl{ display:block; font-weight:700; font-size:15px; }
+  .bill .ttl .rec{ margin-left:6px; font-weight:600; }
+  .bill .meta2{ display:block; font-size:12px; color:var(--muted); margin-top:1px; }
+  .input.big{ font-size:18px; font-weight:600; }
+  /* stats */
+  .chartbox{ background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:10px 6px 4px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .chartbox svg{ display:block; }
+  .chartbox text{ font-size:11px; fill:var(--muted); font-family:inherit; }
+  .chartbox .bar{ cursor:pointer; }
+  .chartbox .hit{ fill:transparent; cursor:pointer; }
+  .chartbox .grid{ stroke:var(--line-2); }
+  .chartbox .axis{ stroke:var(--line); }
+  .chartbox .sel{ stroke:var(--ink); stroke-width:1.5; }
+  .legend{ display:flex; gap:10px 14px; flex-wrap:wrap; margin:10px 2px 0; font-size:12px; color:var(--muted); }
+  .legend .dot,.pp .dot{ display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+  .pp{ display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--line-2); font-size:14px; }
+  .pp:last-child{ border-bottom:0; }
+  .pp .pct{ color:var(--muted); font-size:12px; margin-left:6px; }
+  .mini{ display:flex; justify-content:space-between; gap:8px; padding:7px 0; border-top:1px solid var(--line-2); font-size:13px; }
+  .mini span:first-child{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mini span:nth-child(2){ color:var(--muted); flex:none; }
+  .toast{ position:fixed; left:50%; bottom:calc(100px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:999px; font-size:13px; z-index:40; opacity:0; transition:opacity .2s; pointer-events:none; max-width:90vw; text-align:center; }
+  .toast.show{ opacity:1; }
+  .big-photo{ position:fixed; inset:0; z-index:35; background:rgba(0,0,0,.9); display:none; place-items:center; }
+  .big-photo.open{ display:grid; }
+  .big-photo img{ max-width:96vw; max-height:90vh; object-fit:contain; }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+  [hidden]{ display:none !important; }
+  .login{ background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:18px 16px; margin-top:8px; }
+  .login h2{ margin:0 0 4px; font-size:18px; }
+  .login p{ margin:0 0 14px; color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="plate" id="plate">22-206</div>
+    <div>
+      <h1>公共采购与 AA</h1>
+      <p class="sub" id="subline">正在连接…</p>
+    </div>
+    <button class="gear" id="gearBtn" aria-label="设置" title="设置">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+  <div id="banner"></div>
+  <main id="main"></main>
+</div>
+
+<button class="fab" id="fab" aria-label="添加" hidden>+</button>
+
+<nav class="tabs" aria-label="主导航"><div class="inner">
+  <button data-tab="items" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>清单</button>
+  <button data-tab="bills"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>账单</button>
+  <button data-tab="settle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M4 7h16"/><path d="M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"/></svg>结算</button>
+  <button data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><rect x="5" y="11" width="3.5" height="7"/><rect x="10.25" y="6" width="3.5" height="12"/><rect x="15.5" y="9" width="3.5" height="9"/></svg>统计</button>
+</div></nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div class="big-photo" id="bigPhoto"><img alt="小票照片"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+'use strict';
+/* ============================ constants ============================ */
+const AREAS = ['玄关','客厅','厨房','卫生间','阳台','其他'];
+const PRIS = ['高','中','低'];
+const STATUSES = ['待购买','已到货'];
+const normStatus = st => st === '已到货' ? '已到货' : '待购买';
+const DEFAULT_SETTINGS = { room:'22-206', roster:['Simon','Gary','Harry','Yuluo'], cur:'$' };
+const LS_KEY = 'dorm-aa-v1';
+
+/* ============================ helpers ============================ */
+const $ = (s, el=document) => el.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cents = x => Math.round((Number(x) || 0) * 100);
+const fmt = (c, cur) => (cur ?? S.settings.cur) + (Math.abs(c)/100).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2});
+const signed = c => (c > 0 ? '+' : c < 0 ? '−' : '') + fmt(c);
+const today = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const pad2 = n => String(n).padStart(2,'0');
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+let toastTimer;
+function toast(msg, ms=2200){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'), ms); }
+
+/* ============================ settlement ============================ */
+// Two-pointer greedy on descending-sorted creditors/debtors == the sorted waterfall.
+// For 4 people this yields the minimum number of transfers.
+function computeSettlement(roster, bills){
+  const paid = {}; roster.forEach(r => paid[r] = 0);
+  const unknown = []; let total = 0;
+  for (const b of bills){ const c = cents(b.amount); total += c; if (b.payer in paid) paid[b.payer] += c; else unknown.push(b); }
+  const n = roster.length;
+  const share = n ? Math.round(total / n) : 0;
+  const lines = roster.map(r => ({ name:r, paid:paid[r], share, diff: paid[r] - share }));
+  const cred = lines.filter(l => l.diff > 0).map(l => ({ name:l.name, amt:l.diff })).sort((a,b) => b.amt - a.amt);
+  const debt = lines.filter(l => l.diff < 0).map(l => ({ name:l.name, amt:-l.diff })).sort((a,b) => b.amt - a.amt);
+  const transfers = []; let i=0, j=0;
+  while (i < cred.length && j < debt.length){
+    const x = Math.min(cred[i].amt, debt[j].amt);
+    if (x > 0) transfers.push({ from:debt[j].name, to:cred[i].name, amount:x, done:false });
+    cred[i].amt -= x; debt[j].amt -= x;
+    if (cred[i].amt === 0) i++;
+    if (debt[j].amt === 0) j++;
+  }
+  return { total, share, n, lines, transfers, unknown };
+}
+
+/* ============================ data layer ============================ */
+// Both adapters expose: settingsGet/settingsSet, add(coll,data), set(coll,id,data), update(coll,id,patch), del(coll,id), subscribe(coll,cb), subscribeSettings(cb)
+function localAdapter(){
+  const data = lsGet(LS_KEY, { settings:null, items:{}, bills:{}, rounds:{} });
+  const subs = { items:[], bills:[], rounds:[], settings:[] };
+  const save = () => lsSet(LS_KEY, data);
+  const emit = c => { const arr = Object.entries(data[c]).map(([id,d]) => ({ id, ...d })); subs[c].forEach(cb => cb(arr)); };
+  return {
+    mode:'local',
+    async settingsSet(s){ data.settings = s; save(); subs.settings.forEach(cb => cb(s)); },
+    async add(c, d){ const id = uid(); data[c][id] = d; save(); emit(c); return id; },
+    async set(c, id, d){ data[c][id] = d; save(); emit(c); },
+    async update(c, id, p){ data[c][id] = { ...(data[c][id]||{}), ...p }; save(); emit(c); },
+    async del(c, id){ delete data[c][id]; save(); emit(c); },
+    subscribe(c, cb){ subs[c].push(cb); emit(c); },
+    subscribeSettings(cb){ subs.settings.push(cb); cb(data.settings); },
+  };
+}
+/* ---------- Supabase (Postgres + Storage)，用「宿舍口令」而不是账号控制访问 ---------- */
+let sb = null;
+const CODE_KEY = 'dorm-aa-code';
+const snake = k => k.replace(/[A-Z]/g, c => '_' + c.toLowerCase());
+const camel = k => k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+const toDb = o => Object.fromEntries(Object.entries(o).filter(([k]) => k !== 'id').map(([k, v]) => [snake(k), v]));
+const toApp = r => Object.fromEntries(Object.entries(r).map(([k, v]) => [camel(k), v]));
+const check = res => { if (res.error) throw res.error; return res.data; };
+function takeCodeFromUrl(){
+  const m = /[#&?]code=([^&]+)/.exec(location.hash || ''); if (!m) return '';
+  const code = decodeURIComponent(m[1]).trim();
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  return code;
+}
+const inviteLink = () => location.origin + location.pathname + location.search + '#code=' + encodeURIComponent(lsGet(CODE_KEY, ''));
+function supabaseAdapter(client){
+  const subs = { items:[], bills:[], rounds:[], settings:[] };
+  let inflight = null, again = false;
+  const doLoad = async () => {
+    const { data, error } = await client.rpc('snapshot');
+    if (error) { console.error(error); showBanner('读取数据失败：' + explain(error), true); return; }
+    showBanner('');
+    subs.settings.forEach(cb => cb(data && data.settings ? toApp(data.settings) : null));
+    for (const c of ['items', 'bills', 'rounds']) subs[c].forEach(cb => cb(((data && data[c]) || []).map(toApp)));
+  };
+  const reloadAll = () => {
+    if (inflight) { again = true; return inflight; }
+    inflight = doLoad().finally(() => { inflight = null; if (again) { again = false; reloadAll(); } });
+    return inflight;
+  };
+  const start = () => {
+    reloadAll();
+    setInterval(() => { if (document.visibilityState === 'visible') reloadAll(); }, 10000);   // 轮询：室友的改动最多 10 秒后出现
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reloadAll(); });
+  };
+  return {
+    mode:'supabase', start, reloadAll,
+    async settingsSet(s){ check(await client.from('settings').upsert({ id:'main', ...toDb(s) })); await reloadAll(); },
+    async add(c, d){ const row = check(await client.from(c).insert(toDb(d)).select('id').single()); await reloadAll(); return row.id; },
+    async set(c, id, d){ check(await client.from(c).update(toDb(d)).eq('id', id)); await reloadAll(); },
+    async update(c, id, p){ check(await client.from(c).update(toDb(p)).eq('id', id)); await reloadAll(); },
+    async del(c, id){ check(await client.from(c).delete().eq('id', id)); await reloadAll(); },
+    subscribe(c, cb){ subs[c].push(cb); },
+    subscribeSettings(cb){ subs.settings.push(cb); },
+  };
+}
+function storageAssets(client){
+  const bucket = client.storage.from('receipts');
+  return {
+    async upload(blob){
+      const path = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+      check(await bucket.upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert:false }));
+      return { id: path, url: bucket.getPublicUrl(path).data.publicUrl };
+    },
+    url(id){ return bucket.getPublicUrl(id).data.publicUrl; },
+    async remove(id){ try { await bucket.remove([id]); } catch (e) { console.warn(e); } },
+  };
+}
+const photoSrc = id => (assets && assets.url && id) ? assets.url(id) : '';
+function explain(e){
+  const code = String((e && e.code) || ''); const msg = String((e && e.message) || '');
+  if (code === '42501' || /row-level security/i.test(msg)) return '没有权限：宿舍口令不对或已更换，请重新打开邀请链接';
+  if (code === '23514') return '数据不符合要求（金额必须大于 0）';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) return '网络不可用，再试一次';
+  return msg || '操作失败';
+}
+async function guard(fn, okMsg){ try { await fn(); if (okMsg) toast(okMsg); return true; } catch(e){ console.error(e); toast(explain(e), 3200); return false; } }
+
+/* ============================ state ============================ */
+const S = { settings:{ ...DEFAULT_SETTINGS }, settingsLoaded:false, items:[], bills:[], rounds:[], tab:'items', itemFilter:'全部', billFilter:'未结清', ready:false, roundExclude:new Set(), statUnit:'month', statSel:null };
+let api = null, assets = null;
+
+function showBanner(msg, err){ const b=$('#banner'); b.innerHTML = msg ? `<div class="banner${err?' err':''}">${esc(msg)}</div>` : ''; }
+
+/* ============================ boot ============================ */
+function startSubs(){
+  api.subscribeSettings(s => { S.settings = s ? { ...DEFAULT_SETTINGS, ...s } : { ...DEFAULT_SETTINGS }; S.settingsLoaded = true; render(); });
+  api.subscribe('items', a => { S.items = a.sort((x, y) => (x.no||0) - (y.no||0)); S.ready = true; render(); });
+  api.subscribe('bills', a => { S.bills = a.sort((x, y) => (y.no||0) - (x.no||0)); render(); });
+  api.subscribe('rounds', a => { S.rounds = a.sort((x, y) => (y.no||0) - (x.no||0)); render(); });
+}
+function setChrome(on){ $('nav.tabs').hidden = !on; $('#gearBtn').hidden = !on; if (!on) $('#fab').hidden = true; }
+function showCodePrompt(msg){
+  setChrome(false); $('#subline').textContent = '需要宿舍口令';
+  $('#main').innerHTML = `
+    <div class="login">
+      <h2>输入宿舍口令</h2><p>直接打开室友发你的邀请链接就不用输；口令只需要输一次，这台设备会记住。</p>
+      ${msg ? `<div class="warn">${esc(msg)}</div>` : ''}
+      <form id="codeForm">
+        <div class="field"><label class="lab" for="l_code">口令</label><input class="input" id="l_code" name="code" autocomplete="off" autocapitalize="off" spellcheck="false" required></div>
+        <div class="btnrow"><button class="btn" type="submit">进入</button></div>
+      </form>
+    </div>`;
+}
+function startData(){
+  api = supabaseAdapter(sb); assets = storageAssets(sb);
+  setChrome(true); showBanner(''); startSubs(); api.start(); render();
+}
+let CFG = {};
+async function connect(code){
+  sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, { global: { headers: { 'x-room-code': code } } });
+  let ok = false;
+  try { ok = check(await sb.rpc('room_check')) === true; }
+  catch (e) { console.error(e); showCodePrompt('连不上后端：' + explain(e) + '。请检查 config.js 里的地址，或稍后再试。'); return; }
+  if (!ok) { lsSet(CODE_KEY, ''); showCodePrompt('口令不对，或者口令已经换过了。向室友要一下最新的邀请链接。'); return; }
+  lsSet(CODE_KEY, code); startData();
+}
+async function boot(){
+  CFG = window.DORM_CONFIG || {};
+  const configured = CFG.supabaseUrl && CFG.supabaseAnonKey && !/YOUR-PROJECT|xxxx/i.test(CFG.supabaseUrl) && !/PASTE_ANON_KEY|YOUR-ANON/i.test(CFG.supabaseAnonKey) && window.supabase && window.supabase.createClient;
+  if (!configured){
+    api = localAdapter();
+    showBanner(window.supabase ? '还没有配置后端：在 config.js 里填上 Supabase 的地址和 anon key 后，数据才会在室友之间同步。现在是本机模式，数据只保存在这台设备。' : '没有加载到 Supabase 脚本（可能是网络问题），现在是本机模式，数据只保存在这台设备。');
+    startSubs(); return;
+  }
+  const code = takeCodeFromUrl() || lsGet(CODE_KEY, '');
+  if (!code) { showCodePrompt(); return; }
+  await connect(code);
+}
+async function copyText(text){
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
+  try { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok; } catch (e) { return false; }
+}
+
+/* ============================ derived ============================ */
+const openBills = () => S.bills.filter(b => !b.roundId);
+const roster = () => S.settings.roster.filter(Boolean);
+const nextNo = arr => arr.reduce((m,x) => Math.max(m, x.no||0), 0) + 1;
+const itemByNo = no => S.items.find(i => i.no === no);
+const billsForItem = no => S.bills.filter(b => (b.items||[]).includes(no));
+const myName = () => lsGet('dorm-aa-me', '');
+const selectedOpenBills = () => openBills().filter(b => !S.roundExclude.has(b.id));
+const billTitle = b => b.title || (b.items||[]).map(no => { const it = itemByNo(no); return it ? it.name : '#'+pad2(no); }).join('、') || '未命名账单';
+// ---- periods (week = Monday-based, month = calendar month), keys sort lexicographically
+const parseDate = str => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(str||''); return m ? new Date(+m[1], +m[2]-1, +m[3]) : null; };
+const dkey = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const billDate = b => parseDate(b.date) || parseDate(b.createdAt) || new Date();
+function periodKey(d, unit){ if (unit === 'month') return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`; const m = new Date(d); m.setDate(d.getDate() - (d.getDay()+6)%7); return dkey(m); }
+function nextPeriod(key, unit){ if (unit === 'month'){ const [y,m] = key.split('-').map(Number); return `${m===12?y+1:y}-${pad2(m===12?1:m+1)}`; } const d = parseDate(key); d.setDate(d.getDate()+7); return dkey(d); }
+function periodLabel(key, unit, long){ if (unit === 'month'){ const [y,m] = key.split('-').map(Number); return long ? `${y} 年 ${m} 月` : (m===1 ? `${y}年1月` : `${m}月`); } const d = parseDate(key); const e = new Date(d); e.setDate(d.getDate()+6); return long ? `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日 – ${e.getMonth()+1} 月 ${e.getDate()} 日这一周` : `${d.getMonth()+1}/${d.getDate()}`; }
+
+
+/* ============================ render ============================ */
+function render(){
+  $('#plate').textContent = S.settings.room || '22-206';
+  const ob = openBills(); const openTotal = ob.reduce((a,b) => a + cents(b.amount), 0);
+  const todo = S.items.filter(i => normStatus(i.status) !== '已到货').length;
+  $('#subline').textContent = S.ready ? `待购 ${todo} 项 · 本轮待结算 ${fmt(openTotal)}${api && api.mode==='db' ? ' · 已同步' : ''}` : '正在加载…';
+  document.querySelectorAll('nav.tabs button').forEach(b => { if (b.dataset.tab === S.tab) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); });
+  const fab = $('#fab'); fab.hidden = !(S.tab === 'items' || S.tab === 'bills'); fab.setAttribute('aria-label', S.tab === 'items' ? '添加物品' : '记一笔账');
+  const m = $('#main');
+  if (S.tab === 'items') m.innerHTML = renderItems();
+  else if (S.tab === 'bills') m.innerHTML = renderBills();
+  else if (S.tab === 'stats') { m.innerHTML = renderStats(); const cb = $('#chartbox'); if (cb) cb.scrollLeft = cb.scrollWidth; }
+  else m.innerHTML = renderSettle();
+}
+
+function renderItems(){
+  const total = S.items.length, arrived = S.items.filter(i => normStatus(i.status)==='已到货').length;
+  const cnt = s => S.items.filter(i => normStatus(i.status) === s).length;
+  const list = S.itemFilter === '全部' ? S.items : S.items.filter(i => normStatus(i.status) === S.itemFilter);
+  const pct = total ? Math.round(arrived/total*100) : 0;
+  return `
+    <div class="strip">
+      <div><div class="k">采购到货进度</div><div class="v num">${arrived} / ${total}<small>${pct}%</small></div></div>
+      <div><div class="k">还没买的</div><div class="v num">${cnt('待购买')}<small>项</small></div></div>
+    </div>
+    <div class="chips filters">${['全部',...STATUSES].map(f => `<button class="chip small" data-filter="${f}" aria-pressed="${S.itemFilter===f}">${f}${f==='全部'?'':' '+cnt(f)}</button>`).join('')}</div>
+    <div class="list">${list.length ? list.map(rowItem).join('') : `<div class="empty"><b>${total ? '这一类没有物品' : '还没有采购需求'}</b>${total ? '换个筛选看看' : '点右下角 + 添加第一件，编号会自动递增'}</div>`}</div>
+    <p class="note-inline">点状态可以在「待购买」和「已到货」之间切换；记账时勾选了的物品会自动变成已到货。点物品本身可以编辑。</p>`;
+}
+function rowItem(i){
+  const b = billsForItem(i.no); const st = normStatus(i.status);
+  return `<div class="row${st==='已到货'?' done':''}">
+    <button class="no" data-edit-item="${i.id}" aria-label="编辑 #${pad2(i.no)}">#${pad2(i.no)}</button>
+    <button class="body" data-edit-item="${i.id}" style="background:none;border:0;padding:0;text-align:left">
+      <div class="title">${esc(i.name)} <span class="qty">×${esc(i.qty||1)}</span></div>
+      <div class="meta"><span><i class="pri ${esc(i.priority||'中')}"></i>${esc(i.priority||'中')}</span><span>${esc(i.area||'其他')}</span>${b.length ? `<span>${b.map(x=>`${esc(x.payer)} 买 · REC-${pad2(x.no)}`).join('、')}</span>` : ''}${i.note ? `<span>${esc(i.note)}</span>` : ''}</div>
+    </button>
+    <button class="status ${st}" data-cycle="${i.id}" title="切换状态">${st}</button>
+  </div>`;
+}
+
+function renderBills(){
+  const all = S.bills, open = openBills();
+  const mk = periodKey(new Date(), 'month'); const month = all.filter(b => periodKey(billDate(b), 'month') === mk);
+  const cum = month.reduce((a,b) => a + cents(b.amount), 0), openTotal = open.reduce((a,b) => a + cents(b.amount), 0);
+  const list = S.billFilter === '未结清' ? open : all;
+  return `
+    <div class="strip">
+      <div><div class="k">本月累计总支出</div><div class="v num">${fmt(cum)}<small>${month.length} 笔</small></div></div>
+      <div><div class="k">本轮待结算</div><div class="v num">${fmt(openTotal)}<small>${open.length} 笔</small></div></div>
+    </div>
+    <div class="chips filters">${['未结清','全部'].map(f => `<button class="chip small" data-bfilter="${f}" aria-pressed="${S.billFilter===f}">${f}</button>`).join('')}</div>
+    ${list.length ? list.map(billCard).join('') : `<div class="list"><div class="empty"><b>${all.length ? '没有未结清的账单' : '还没有账单'}</b>${all.length ? '本轮已经结清，新账单会出现在这里' : '谁先垫钱买了东西，就点右下角 + 记一笔'}</div></div>`}`;
+}
+function billCard(b){
+  const round = b.roundId ? S.rounds.find(r => r.id === b.roundId) : null;
+  const names = (b.items||[]).map(no => { const it = itemByNo(no); return it ? `#${pad2(no)} ${esc(it.name)}` : `#${pad2(no)}`; });
+  return `<button class="bill${b.roundId?' settled':''}" data-edit-bill="${b.id}">
+    <span class="bmain">
+      <span class="ttl">${esc(billTitle(b))}<span class="rec">REC-${pad2(b.no)}</span></span>
+      <span class="amt num" style="display:block">${fmt(cents(b.amount))}</span>
+      <span class="meta2">${esc(b.payer)} 垫付 · <span class="num">${esc(b.date||'')}</span></span>
+      ${names.length ? `<span class="items" style="display:block">${names.join(' · ')}</span>` : ''}
+      ${b.channel ? `<span class="note" style="display:block">${esc(b.channel)}</span>` : ''}
+    </span>
+    ${b.photo && photoSrc(b.photo) ? `<img class="thumb" src="${esc(photoSrc(b.photo))}" alt="小票" loading="lazy">` : ''}
+    ${b.roundId ? `<span class="tag">已结清 · 第 ${round ? round.no : '?'} 轮</span>` : ''}
+  </button>`;
+}
+
+function renderSettle(){
+  const r = roster(); const open = openBills(); const sel = selectedOpenBills(); const left = open.length - sel.length;
+  const st = computeSettlement(r, sel);
+  const picker = open.length ? `
+    <div class="section-h"><h2>本轮结算哪些账单</h2><span class="hint">${sel.length} / ${open.length} 笔${left ? ` · <button class="link" data-pickall>全选</button>` : ''}</span></div>
+    <div class="picklist">${open.map(b => `<label class="pickrow${S.roundExclude.has(b.id)?' off':''}"><input type="checkbox" data-roundpick="${b.id}" ${S.roundExclude.has(b.id)?'':'checked'}><span class="t"><b>${esc(billTitle(b))}</b><span>REC-${pad2(b.no)} · ${esc(b.payer)} · <span class="num">${esc(b.date||'')}</span></span></span><span class="a num">${fmt(cents(b.amount))}</span></label>`).join('')}</div>
+    ${left ? `<p class="note-inline">取消勾选的 ${left} 笔会留到下一轮再结。</p>` : ''}` : '';
+  const rows = st.lines.map(l => `<tr><td class="name">${esc(l.name)}</td><td class="r num">${fmt(l.paid)}</td><td class="r num">${fmt(l.share)}</td><td class="r num ${l.diff>0?'pos':l.diff<0?'neg':'zero'}">${signed(l.diff)}</td></tr>`).join('');
+  const tr = st.transfers.length
+    ? st.transfers.map(t => `<div class="transfer"><div class="who"><b>${esc(t.from)}</b><span class="arrow">→</span><b>${esc(t.to)}</b></div><div class="amt num">${fmt(t.amount)}</div></div>`).join('')
+    : `<div class="transfer"><div class="who" style="color:var(--muted)">${sel.length ? '大家垫付得一样多，不用转账' : open.length ? '没有勾选任何账单' : '还没有未结清的账单'}</div></div>`;
+  const unk = st.unknown.length ? `<div class="warn">${st.unknown.length} 笔账单的垫付人不在室友名单里（${[...new Set(st.unknown.map(b=>b.payer))].map(esc).join('、')}），没有算进任何人的垫付。到设置里改名单，或编辑这些账单。</div>` : '';
+  const history = S.rounds.length ? S.rounds.map((rd, idx) => roundCard(rd, idx===0)).join('') : `<p class="note-inline">还没有结算过。</p>`;
+  return `
+    ${picker}
+    ${unk}
+    <div class="ticket">
+      <div class="head"><b>本轮结算</b><span>${sel.length} 笔 · 共 ${fmt(st.total)} · ${st.n} 人每人 ${fmt(st.share)}</span></div>
+      <table><thead><tr><th>室友</th><th class="r">本轮垫付</th><th class="r">应摊</th><th class="r">差额</th></tr></thead><tbody>${rows}</tbody></table>
+      <hr class="tear">
+      ${tr}
+      <div class="foot">${st.transfers.length ? `按金额从大到小配对，${st.transfers.length} 笔转账即可结清。` : ''}${st.total % st.n ? '分摊按分取整，零头 1–2 分由垫付人承担。' : ''}</div>
+    </div>
+    <div class="btnrow"><button class="btn" id="closeRound" ${sel.length && !st.unknown.length ? '' : 'disabled'}>结算本轮：关闭这 ${sel.length} 笔账单</button></div>
+    <p class="note-inline">点「结算本轮」后，勾选的账单一起标为已结清，转账清单会存进历史，可以逐笔打勾。没勾的和之后新记的账进入下一轮。</p>
+    <div class="section-h"><h2>结算历史</h2><span class="hint">${S.rounds.length} 轮</span></div>
+    ${history}`;
+}
+function renderStats(){
+  const unit = S.statUnit; const bills = S.bills; const r = roster();
+  if (!bills.length) return `<div class="chips filters">${unitChips()}</div><div class="list"><div class="empty"><b>还没有账单</b>记账以后这里会按周或按月显示宿舍总花费和你垫付的部分</div></div>`;
+  // group
+  const groups = {};
+  for (const b of bills){ const k = periodKey(billDate(b), unit); (groups[k] ??= { total:0, byPayer:{}, bills:[] }); const g = groups[k]; const c = cents(b.amount); g.total += c; g.byPayer[b.payer] = (g.byPayer[b.payer]||0) + c; g.bills.push(b); }
+  const keys = Object.keys(groups).sort(); const nowKey = periodKey(new Date(), unit);
+  const endKey = keys[keys.length-1] > nowKey ? keys[keys.length-1] : nowKey;
+  const periods = []; for (let k = keys[0]; ; k = nextPeriod(k, unit)){ periods.push(k); if (k >= endKey || periods.length > 400) break; }
+  const shown = periods.length > 60 ? periods.slice(-60) : periods;
+  const sel = S.statSel && groups[S.statSel] ? S.statSel : keys[keys.length-1];
+  const me = r.includes(myName()) ? myName() : '';
+  const ME = '#2F7D32', OTHER = '#B8C4BC';
+  // chart geometry
+  const mainW = Math.max(300, ($('#main').clientWidth || 360) - 14);
+  const M = { l:46, r:10, t:14, b:26 }, H = 230, chartH = H - M.t - M.b;
+  const colW = Math.max(38, Math.min(64, (mainW - M.l - M.r) / shown.length));
+  const W = Math.max(mainW, M.l + M.r + colW * shown.length); const barW = Math.min(36, colW * 0.62);
+  const maxV = Math.max(1, ...shown.map(k => groups[k] ? groups[k].total : 0));
+  const nice = niceCeil(maxV); const y = v => M.t + chartH - v / nice * chartH;
+  const grid = [0, .25, .5, .75, 1].map(f => `<line class="grid" x1="${M.l}" x2="${W - M.r}" y1="${y(nice*f)}" y2="${y(nice*f)}"/><text x="${M.l - 6}" y="${y(nice*f) + 4}" text-anchor="end">${shortMoney(nice*f)}</text>`).join('');
+  const bars = shown.map((k, i) => {
+    const g = groups[k]; const x0 = M.l + i * colW + (colW - barW) / 2; let acc = 0; let segs = '';
+    if (g){ const mine = me ? (g.byPayer[me] || 0) : 0; const parts = [[mine, ME, `我垫付 ${fmt(mine)}`], [g.total - mine, OTHER, `宿舍合计 ${fmt(g.total)}`]];
+      for (const [v, col, tip] of parts){ if (!v) continue; const y1 = y(acc + v), y0 = y(acc); segs += `<rect class="bar" x="${x0}" y="${y1}" width="${barW}" height="${Math.max(0, y0 - y1)}" fill="${col}" rx="2"><title>${tip}</title></rect>`; acc += v; } }
+    const label = (unit === 'month' || shown.length <= 8 || i % 2 === 0 || i === shown.length - 1) ? `<text x="${x0 + barW/2}" y="${H - 8}" text-anchor="middle">${esc(periodLabel(k, unit))}</text>` : '';
+    return `<g data-period="${k}"><rect class="hit" x="${M.l + i*colW}" y="${M.t}" width="${colW}" height="${chartH}"/>${segs}${k === sel && g ? `<rect class="sel" x="${x0 - 3}" y="${y(g.total) - 3}" width="${barW + 6}" height="${y(0) - y(g.total) + 6}" fill="none" rx="4"/>` : ''}${label}</g>`;
+  }).join('');
+  const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="每${unit==='month'?'月':'周'}花费柱状图">${grid}<line class="axis" x1="${M.l}" x2="${W - M.r}" y1="${y(0)}" y2="${y(0)}"/>${bars}</svg>`;
+  const rangeTotal = shown.reduce((a,k) => a + (groups[k] ? groups[k].total : 0), 0);
+  const rangeMine = me ? shown.reduce((a,k) => a + (groups[k] ? (groups[k].byPayer[me]||0) : 0), 0) : 0;
+  const legend = `<div class="legend">${me ? `<span><i class="dot" style="background:${ME}"></i>我（${esc(me)}）垫付 ${fmt(rangeMine)}</span>` : ''}<span><i class="dot" style="background:${OTHER}"></i>宿舍合计 ${fmt(rangeTotal)}</span></div>`;
+  const meChips = `<div class="chips filters" style="margin-top:8px"><span class="hint" style="align-self:center;font-size:12px;color:var(--muted)">我是</span>${r.map(nm => `<button class="chip small" data-me="${esc(nm)}" aria-pressed="${nm===me}">${esc(nm)}</button>`).join('')}</div>`;
+  // detail panel
+  const g = groups[sel]; const n = r.length || 1;
+  const detail = g ? `
+    <div class="ticket" style="margin-top:12px">
+      <div class="head"><b>${esc(periodLabel(sel, unit, true))}</b><span>${g.bills.length} 笔</span></div>
+      <div class="strip" style="margin:0 0 6px"><div><div class="k">宿舍总花费</div><div class="v num">${fmt(g.total)}</div></div><div><div class="k">${me ? `我垫付` : '人均应摊'}</div><div class="v num">${me ? fmt(g.byPayer[me]||0) : fmt(Math.round(g.total / n))}</div></div></div>
+      ${me ? `<div class="pp"><span>我应摊（总花费 ÷ ${n} 人）</span><span class="num">${fmt(Math.round(g.total / n))}</span></div>` : ''}
+      <hr class="tear">
+      ${[...g.bills].sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.no||0) - (a.no||0)).map(b => `<div class="mini"><span>${esc(billTitle(b))}</span><span>${esc(b.payer)} · <span class="num">${esc(b.date||'')}</span></span><span class="num">${fmt(cents(b.amount))}</span></div>`).join('')}
+    </div>` : `<p class="note-inline">点一根柱子查看那${unit==='month'?'个月':'一周'}的明细。</p>`;
+  return `
+    <div class="chips filters">${unitChips()}<span class="hint" style="align-self:center;font-size:12px;color:var(--muted)">共 ${shown.length} ${unit==='month'?'个月':'周'} · 合计 ${fmt(rangeTotal)}</span></div>
+    <div class="chartbox" id="chartbox">${svg}</div>
+    ${legend}
+    ${meChips}
+    <p class="note-inline">整根柱子是宿舍总花费，绿色部分是我垫付的${me ? '' : '（先在上面选一下你是谁）'}；按账单日期归入所在${unit==='month'?'月份':'周（周一起算）'}。点柱子看明细。</p>
+    ${detail}`;
+}
+const unitChips = () => ['week','month'].map(u => `<button class="chip small" data-unit="${u}" aria-pressed="${S.statUnit===u}">${u==='week'?'按周':'按月'}</button>`).join('');
+function niceCeil(c){ const v = c / 100; const p = Math.pow(10, Math.floor(Math.log10(v))); const m = v / p; const nm = m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10; return Math.round(nm * p * 100); }
+const shortMoney = c => { const v = c / 100; return S.settings.cur + (v >= 1000 ? (v/1000).toFixed(v % 1000 ? 1 : 0) + 'k' : Number.isInteger(v) ? v : v.toFixed(1)); };
+function roundCard(rd, latest){
+  const trs = (rd.transfers||[]).map((t, k) => `<div class="transfer${t.done?' done':''}"><div class="who"><b>${esc(t.from)}</b><span class="arrow">→</span><b>${esc(t.to)}</b></div><div class="amt num">${fmt(t.amount)}</div><label><input type="checkbox" data-round="${rd.id}" data-k="${k}" ${t.done?'checked':''}>已转</label></div>`).join('');
+  const allDone = (rd.transfers||[]).every(t => t.done);
+  return `<div class="round ticket">
+    <div class="rh"><b>第 ${rd.no} 轮</b><span class="num">${esc((rd.createdAt||'').slice(0,10))} · ${(rd.billIds||[]).length} 笔 · 共 ${fmt(rd.total)}</span>${latest ? `<button class="link danger" data-undo="${rd.id}">撤销</button>` : ''}</div>
+    ${trs || '<div class="transfer"><div class="who" style="color:var(--muted)">这一轮没有需要转账的</div></div>'}
+    <div class="foot">${allDone && trs ? '全部转账已完成 ✓' : '转完账后打勾，方便大家都看到。'}</div>
+  </div>`;
+}
+
+/* ============================ sheets ============================ */
+const sheet = $('#sheet'), scrim = $('#scrim');
+function openSheet(html){ sheet.innerHTML = `<div class="grab"></div>` + html; sheet.classList.add('open'); scrim.classList.add('open'); const f = sheet.querySelector('input:not([type=hidden]):not([type=file]),textarea'); if (f && window.matchMedia && window.matchMedia('(min-width:640px)').matches) f.focus(); }
+function closeSheet(){ sheet.classList.remove('open'); scrim.classList.remove('open'); sheet.innerHTML=''; }
+const chipGroup = (name, opts, val, disabled) => `<div class="chips" data-group="${name}">${opts.map(o => `<button type="button" class="chip" data-val="${esc(o)}" aria-pressed="${o===val}" ${disabled?'disabled':''}>${esc(o)}</button>`).join('')}<input type="hidden" name="${name}" value="${esc(val ?? '')}"></div>`;
+
+function openItemSheet(item){
+  const it = item || { name:'', area:'客厅', qty:1, priority:'中', status:'待购买', note:'' };
+  const linked = item ? billsForItem(item.no) : [];
+  openSheet(`
+    <h3>${item ? `编辑 #${pad2(item.no)}` : `新物品 #${pad2(nextNo(S.items))}`}<button class="x" data-close aria-label="关闭">×</button></h3>
+    <form id="itemForm"><input type="hidden" name="docId" value="${item ? esc(item.id) : ''}">
+      <div class="field"><label class="lab" for="f_name">物品名称 <span class="req">*</span></label><input class="input" id="f_name" name="name" value="${esc(it.name)}" placeholder="例：扫把套装" required maxlength="40"></div>
+      <div class="field"><label class="lab">区域</label>${chipGroup('area', AREAS, it.area)}</div>
+      <div class="grid2">
+        <div class="field"><label class="lab" for="f_qty">数量</label><input class="input num" id="f_qty" name="qty" type="number" inputmode="numeric" min="1" step="1" value="${esc(it.qty||1)}"></div>
+        <div class="field"><label class="lab">优先级</label>${chipGroup('priority', PRIS, it.priority)}</div>
+      </div>
+      ${item ? `<div class="field"><label class="lab">采购状态</label>${chipGroup('status', STATUSES, normStatus(it.status))}</div>` : ''}
+      <div class="field"><label class="lab" for="f_note">规格与备注</label><input class="input" id="f_note" name="note" value="${esc(it.note||'')}" placeholder="例：一人一双，额外两双客用" maxlength="80"></div>
+      ${linked.length ? `<p class="note-inline">已出现在账单：${linked.map(b=>'REC-'+pad2(b.no)).join('、')}</p>` : ''}
+      <div class="btnrow"><button class="btn" type="submit">${item ? '保存修改' : '添加到清单'}</button></div>
+      ${item ? `<div class="btnrow"><button class="btn danger" type="button" data-del-item="${item.id}">删除这件物品</button></div>` : ''}
+    </form>`);
+}
+
+function openBillSheet(bill){
+  const r = roster();
+  const b = bill || { title:'', date:today(), payer: r.includes(myName()) ? myName() : '', items:[], amount:'', channel:'', photo:null };
+  const locked = !!(bill && bill.roundId);
+  const itemsSorted = [...S.items].sort((x,y) => (normStatus(x.status)==='已到货') - (normStatus(y.status)==='已到货') || x.no - y.no);
+  openSheet(`
+    <h3>${bill ? `编辑 REC-${pad2(bill.no)}` : `记一笔 REC-${pad2(nextNo(S.bills))}`}<button class="x" data-close aria-label="关闭">×</button></h3>
+    ${locked ? `<div class="warn">这笔账已经在第 ${(S.rounds.find(x=>x.id===bill.roundId)||{}).no||'?'} 轮结清了。金额、垫付人和物品不能改；要改请先到「结算」撤销那一轮。</div>` : ''}
+    <form id="billForm"><input type="hidden" name="docId" value="${bill ? esc(bill.id) : ''}">
+      <div class="field"><label class="lab" for="f_title">这笔账是关于什么 <span class="req">*</span></label><input class="input big" id="f_title" name="title" value="${esc(b.title||'')}" placeholder="例：周五共同晚餐 / 宜家采购" maxlength="40"><p class="note-inline">不一定要和清单有关，聚餐、水电、外卖都可以记；留空会自动用勾选的物品名。</p></div>
+      <div class="field"><label class="lab">垫付人 <span class="req">*</span></label>${chipGroup('payer', r, b.payer, locked)}</div>
+      <div class="grid2">
+        <div class="field"><label class="lab" for="f_amount">结账总额 <span class="req">*</span></label><div class="money"><span class="cur">${esc(S.settings.cur)}</span><input class="input" id="f_amount" name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" value="${esc(b.amount)}" placeholder="0.00" ${locked?'disabled':''} required></div></div>
+        <div class="field"><label class="lab" for="f_date">结账日期</label><input class="input" id="f_date" name="date" type="date" value="${esc(b.date||today())}"></div>
+      </div>
+      <div class="field"><label class="lab">涵盖物品（可多选）</label>
+        ${itemsSorted.length ? `<div class="itempick">${itemsSorted.map(i => `<label><input type="checkbox" name="items" value="${i.no}" ${(b.items||[]).includes(i.no)?'checked':''} ${locked?'disabled':''}>#${pad2(i.no)} ${esc(i.name)}<span class="s">${normStatus(i.status)}</span></label>`).join('')}</div>` : `<p class="note-inline">清单里还没有物品，可以先记账，之后再关联。</p>`}
+        <p class="note-inline">勾选的物品会自动变成「已到货」。</p>
+      </div>
+      <div class="field"><label class="lab" for="f_channel">采购渠道与费用说明</label><input class="input" id="f_channel" name="channel" value="${esc(b.channel||'')}" placeholder="例：宜家 · 拖把和扫把" maxlength="80"></div>
+      ${assets || b.photo ? `<div class="field"><label class="lab">小票照片</label><div class="photo">
+        ${b.photo && photoSrc(b.photo) ? `<img src="${esc(photoSrc(b.photo))}" alt="小票" data-big="${esc(photoSrc(b.photo))}">` : ''}
+        ${assets ? `<label class="btn ghost pick" style="width:auto;padding:9px 14px"><input type="file" accept="image/*" name="photoFile">${b.photo ? '换一张' : '拍照 / 选图'}</label>` : ''}
+        ${b.photo && assets ? `<button type="button" class="link danger" data-clear-photo>移除</button>` : ''}
+        <input type="hidden" name="photo" value="${esc(b.photo||'')}"><span class="note-inline" id="photoStatus"></span>
+      </div></div>` : ''}
+      <div class="btnrow"><button class="btn" type="submit">${bill ? '保存修改' : '记下这笔'}</button></div>
+      ${bill && !locked ? `<div class="btnrow"><button class="btn danger" type="button" data-del-bill="${bill.id}">删除这笔账</button></div>` : ''}
+    </form>`);
+}
+
+function openSettings(){
+  const r = S.settings.roster.length ? S.settings.roster : DEFAULT_SETTINGS.roster;
+  openSheet(`
+    <h3>设置<button class="x" data-close aria-label="关闭">×</button></h3>
+    <form id="settingsForm">
+      <div class="grid2">
+        <div class="field"><label class="lab" for="s_room">宿舍号</label><input class="input" id="s_room" name="room" value="${esc(S.settings.room)}" maxlength="12"></div>
+        <div class="field"><label class="lab" for="s_cur">货币符号</label><input class="input" id="s_cur" name="cur" value="${esc(S.settings.cur)}" maxlength="3"></div>
+      </div>
+      <div class="field"><label class="lab">室友名单（AA 按这里的人数平摊）</label>
+        <div class="roster-edit" id="rosterEdit">${r.map(n => `<div class="r"><input class="input" name="roster" value="${esc(n)}" maxlength="16" placeholder="名字"><button type="button" class="link danger" data-rm-name>移除</button></div>`).join('')}</div>
+        <button type="button" class="link" id="addName">+ 加一个人</button>
+        <p class="note-inline">改名后，以前账单上的旧名字不会自动跟着改，结算页会提示。</p>
+      </div>
+      <div class="field"><label class="lab">这台设备上我是</label>${chipGroup('me', r.filter(Boolean), myName())}<p class="note-inline">记账时会默认选中你，只存在本设备。</p></div>
+      <div class="btnrow"><button class="btn" type="submit">保存设置</button></div>
+      <p class="note-inline">数据模式：${api && api.mode==='supabase' ? '共享数据库（Supabase），室友之间自动同步。' : '本机模式，只保存在这台设备。'}</p>
+      ${sb ? `<div class="field"><label class="lab" for="inviteLink">邀请室友的链接（里面带着口令，只发给室友）</label><input class="input" id="inviteLink" readonly value="${esc(inviteLink())}" style="font-size:13px">
+        <div class="btnrow"><button type="button" class="btn secondary" id="copyInvite">复制链接</button><button type="button" class="btn ghost" id="changeCode">换口令</button></div></div>` : ''}
+    </form>`);
+}
+
+function openCloseRound(){
+  const open = selectedOpenBills(); const st = computeSettlement(roster(), open);
+  openSheet(`
+    <h3>确认结算本轮<button class="x" data-close aria-label="关闭">×</button></h3>
+    <p>会把这 <b>${open.length}</b> 笔账单（共 ${fmt(st.total)}）一起标为已结清，并保存下面的转账清单：</p>
+    <div class="ticket">${st.transfers.length ? st.transfers.map(t => `<div class="transfer"><div class="who"><b>${esc(t.from)}</b><span class="arrow">→</span><b>${esc(t.to)}</b></div><div class="amt num">${fmt(t.amount)}</div></div>`).join('') : '<div class="transfer"><div class="who">不需要转账</div></div>'}</div>
+    <p class="note-inline">结算后再记的账进入下一轮。如果点错了，最近一轮可以在结算页撤销。</p>
+    <div class="btnrow"><button class="btn ghost" type="button" data-close>再想想</button><button class="btn" id="confirmRound" type="button">确认结算</button></div>`);
+}
+
+/* ============================ actions ============================ */
+async function saveItem(form, id){
+  const fd = new FormData(form);
+  const name = String(fd.get('name')||'').trim(); if (!name) { toast('请填物品名称'); return; }
+  const base = id ? S.items.find(i => i.id===id) : null;
+  const data = {
+    no: base ? base.no : nextNo(S.items), name, area: fd.get('area')||'其他', qty: Math.max(1, parseInt(fd.get('qty'),10)||1),
+    priority: fd.get('priority')||'中', status: normStatus(fd.get('status') || (base ? base.status : '待购买')),
+    note: String(fd.get('note')||'').trim(), createdAt: base ? base.createdAt : new Date().toISOString(),
+  };
+  const ok = await guard(async () => { if (id) await api.set('items', id, data); else await api.add('items', data); }, id ? '已保存' : `已添加 #${pad2(data.no)}`);
+  if (ok) closeSheet();
+}
+async function saveBill(form, id){
+  const fd = new FormData(form);
+  const base = id ? S.bills.find(b => b.id===id) : null;
+  const locked = !!(base && base.roundId);
+  const payer = locked ? base.payer : fd.get('payer'); const amount = locked ? base.amount : Math.round((parseFloat(fd.get('amount'))||0)*100)/100;
+  if (!payer) { toast('请选垫付人'); return; }
+  if (!(amount > 0)) { toast('请填结账总额'); return; }
+  const items = locked ? (base.items||[]) : fd.getAll('items').map(Number).filter(n => Number.isFinite(n));
+  let title = String(fd.get('title')||'').trim();
+  if (!title) title = items.map(no => { const it = itemByNo(no); return it ? it.name : ''; }).filter(Boolean).slice(0,3).join('、');
+  if (!title) { toast('请写一下这笔账是关于什么，或勾选物品'); return; }
+  const data = {
+    no: base ? base.no : nextNo(S.bills), title, date: fd.get('date') || today(), payer, amount, items,
+    channel: String(fd.get('channel')||'').trim(), photo: fd.get('photo') ? String(fd.get('photo')) : null,
+    roundId: base ? (base.roundId||null) : null, createdAt: base ? base.createdAt : new Date().toISOString(),
+  };
+  const ok = await guard(async () => {
+    if (id) await api.set('bills', id, data); else await api.add('bills', data);
+    for (const no of items){ const it = itemByNo(no); if (it && normStatus(it.status) !== '已到货') await api.update('items', it.id, { status:'已到货' }); }
+  }, id ? '已保存' : `已记下 REC-${pad2(data.no)}`);
+  if (ok) closeSheet();
+}
+async function closeRound(){
+  const open = selectedOpenBills(); if (!open.length) return;
+  const st = computeSettlement(roster(), open);
+  if (st.unknown.length) { toast('有账单的垫付人不在名单里，先处理再结算'); return; }
+  const rd = { no: nextNo(S.rounds), createdAt: new Date().toISOString(), billIds: open.map(b => b.id), total: st.total, share: st.share, n: st.n,
+    lines: st.lines, transfers: st.transfers };
+  const ok = await guard(async () => {
+    const roundId = await api.add('rounds', rd);
+    for (const b of open) await api.update('bills', b.id, { roundId });
+  }, `第 ${rd.no} 轮已结算`);
+  if (ok) { S.roundExclude.clear(); closeSheet(); render(); }
+}
+// Two-step confirmation (no native confirm(): it can be blocked inside sandboxed iframes).
+function armed(el, label){
+  if (el.dataset.armed === '1') { el.dataset.armed = ''; el.textContent = el.dataset.orig || el.textContent; return true; }
+  el.dataset.orig = el.textContent; el.dataset.armed = '1'; el.textContent = label || '再点一次确认';
+  setTimeout(() => { if (el.dataset.armed === '1') { el.dataset.armed = ''; el.textContent = el.dataset.orig; } }, 4000);
+  return false;
+}
+async function undoRound(id){
+  const rd = S.rounds.find(r => r.id === id); if (!rd) return;
+  await guard(async () => {
+    for (const bid of rd.billIds||[]) { if (S.bills.find(b => b.id === bid)) await api.update('bills', bid, { roundId:null }); }
+    await api.del('rounds', id);
+  }, '已撤销');
+}
+async function toggleTransfer(roundId, k, done){
+  const rd = S.rounds.find(r => r.id === roundId); if (!rd) return;
+  const transfers = (rd.transfers||[]).map((t, i) => i === k ? { ...t, done } : t);
+  await guard(() => api.update('rounds', roundId, { transfers }));
+}
+async function cycleStatus(id){
+  const it = S.items.find(i => i.id === id); if (!it) return;
+  const next = normStatus(it.status) === '已到货' ? '待购买' : '已到货';
+  await guard(() => api.update('items', id, { status: next }));
+}
+async function uploadPhoto(file, form){
+  if (!assets || !file) return;
+  const status = $('#photoStatus'); if (status) status.textContent = '上传中…';
+  try {
+    const blob = await shrink(file);
+    const res = await assets.upload(blob);
+    form.querySelector('input[name=photo]').value = res.id;
+    const ph = form.querySelector('.photo'); let img = ph.querySelector('img');
+    if (!img) { img = document.createElement('img'); img.alt='小票'; ph.prepend(img); }
+    img.src = res.url; img.dataset.big = res.url;
+    if (status) status.textContent = '已上传，保存后生效';
+  } catch(e){ console.error(e); if (status) status.textContent = ''; toast(e && e.code === 'store_unavailable' ? '上传暂时失败，再试一次' : '上传失败：' + explain(e), 3200); }
+}
+function shrink(file){
+  return new Promise((resolve) => {
+    if (!/^image\//.test(file.type) || file.type === 'image/gif') return resolve(file);
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const max = 1600; let { width:w, height:h } = img; const k = Math.min(1, max / Math.max(w, h)); w = Math.round(w*k); h = Math.round(h*k);
+      const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => resolve(b || file), 'image/jpeg', 0.82);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
+/* ============================ events ============================ */
+document.addEventListener('click', async (e) => {
+  const t = e.target.closest('button, label.pick, img[data-big], [data-period]'); if (!t) return;
+  if (t.dataset.period) { S.statSel = t.dataset.period; render(); return; }
+  if (t.hasAttribute('data-pickall')) { S.roundExclude.clear(); render(); return; }
+  if (t.dataset.unit) { S.statUnit = t.dataset.unit; S.statSel = null; render(); return; }
+  if (t.dataset.me !== undefined && t.closest('#main')) { lsSet('dorm-aa-me', t.dataset.me); render(); return; }
+  if (t.matches('nav.tabs button')) { S.tab = t.dataset.tab; render(); window.scrollTo({top:0}); return; }
+  if (t.id === 'fab') { if (S.tab === 'items') openItemSheet(); else openBillSheet(); return; }
+  if (t.id === 'gearBtn') { openSettings(); return; }
+  if (t.id === 'copyInvite') { copyText(inviteLink()).then(ok => toast(ok ? '已复制，发给室友即可' : '复制失败，请手动长按选中复制')); return; }
+  if (t.id === 'changeCode') { lsSet(CODE_KEY, ''); location.reload(); return; }
+  if (t.dataset.filter) { S.itemFilter = t.dataset.filter; render(); return; }
+  if (t.dataset.bfilter) { S.billFilter = t.dataset.bfilter; render(); return; }
+  if (t.dataset.cycle) { cycleStatus(t.dataset.cycle); return; }
+  if (t.dataset.editItem) { const it = S.items.find(i => i.id === t.dataset.editItem); if (it) openItemSheet(it); return; }
+  if (t.dataset.editBill) { const b = S.bills.find(x => x.id === t.dataset.editBill); if (b) openBillSheet(b); return; }
+  if (t.id === 'closeRound') { openCloseRound(); return; }
+  if (t.id === 'confirmRound') { t.disabled = true; await closeRound(); t.disabled = false; return; }
+  if (t.dataset.undo) { if (armed(t, '再点一次确认撤销')) undoRound(t.dataset.undo); return; }
+  if (t.hasAttribute('data-close')) { closeSheet(); return; }
+  if (t.dataset.val !== undefined && t.closest('[data-group]')) {
+    const g = t.closest('[data-group]'); g.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', c === t ? 'true' : 'false'));
+    g.querySelector('input[type=hidden]').value = t.dataset.val; return;
+  }
+  if (t.dataset.delItem) { if (!armed(t, '再点一次确认删除')) return; const it = S.items.find(i => i.id === t.dataset.delItem); if (it && await guard(() => api.del('items', it.id), '已删除')) closeSheet(); return; }
+  if (t.dataset.delBill) { if (!armed(t, '再点一次确认删除')) return; const b = S.bills.find(x => x.id === t.dataset.delBill); if (b && await guard(() => api.del('bills', b.id), '已删除')) { if (b.photo && assets && assets.remove) assets.remove(b.photo); closeSheet(); } return; }
+  if (t.hasAttribute('data-clear-photo')) { const f = t.closest('form'); f.querySelector('input[name=photo]').value=''; const img = f.querySelector('.photo img'); if (img) img.remove(); t.remove(); return; }
+  if (t.id === 'addName') { const box = $('#rosterEdit'); const d = document.createElement('div'); d.className='r'; d.innerHTML = `<input class="input" name="roster" maxlength="16" placeholder="名字"><button type="button" class="link danger" data-rm-name>移除</button>`; box.appendChild(d); d.querySelector('input').focus(); return; }
+  if (t.hasAttribute('data-rm-name')) { const box = $('#rosterEdit'); if (box.children.length > 1) t.closest('.r').remove(); else toast('至少要有一个人'); return; }
+  if (t.matches('img[data-big]')) { e.preventDefault(); const bp = $('#bigPhoto'); bp.querySelector('img').src = t.dataset.big; bp.classList.add('open'); return; }
+});
+$('#bigPhoto').addEventListener('click', () => $('#bigPhoto').classList.remove('open'));
+scrim.addEventListener('click', closeSheet);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); $('#bigPhoto').classList.remove('open'); } });
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.matches('input[type=checkbox][data-round]')) { toggleTransfer(t.dataset.round, Number(t.dataset.k), t.checked); return; }
+  if (t.matches('input[type=checkbox][data-roundpick]')) { if (t.checked) S.roundExclude.delete(t.dataset.roundpick); else S.roundExclude.add(t.dataset.roundpick); render(); return; }
+  if (t.matches('input[type=file][name=photoFile]')) { uploadPhoto(t.files && t.files[0], t.closest('form')); t.value=''; return; }
+});
+document.addEventListener('submit', async e => {
+  const f = e.target; e.preventDefault();
+  if (f.id === 'codeForm') { const code = String(new FormData(f).get('code')||'').trim(); if (code) { f.querySelector('[type=submit]').disabled = true; connect(code); } return; }
+  if (f.id === 'itemForm') { const btn = f.querySelector('[type=submit]'); btn.disabled = true; await saveItem(f, f.querySelector('input[name=docId]').value || null); btn.disabled = false; }
+  else if (f.id === 'billForm') { const btn = f.querySelector('[type=submit]'); btn.disabled = true; await saveBill(f, f.querySelector('input[name=docId]').value || null); btn.disabled = false; }
+  else if (f.id === 'settingsForm') {
+    const fd = new FormData(f);
+    const names = fd.getAll('roster').map(s => String(s).trim()).filter(Boolean);
+    const dedup = [...new Set(names)];
+    if (!dedup.length) { toast('至少要有一个人'); return; }
+    const s = { room: String(fd.get('room')||'').trim() || '22-206', cur: String(fd.get('cur')||'').trim() || '$', roster: dedup };
+    lsSet('dorm-aa-me', String(fd.get('me')||''));
+    if (await guard(() => api.settingsSet(s), '设置已保存')) closeSheet();
+  }
+});
+
+boot();
+})();
+</script>
+</body>
+</html>
